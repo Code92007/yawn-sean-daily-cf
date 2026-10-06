@@ -73,3 +73,25 @@ class TopicListTests(unittest.TestCase):
             file.parent.mkdir(parents=True);file.write_text('Solution')
             p=module.parse('| *1000 | [GYM100947C](https://codeforces.com/gym/100947/problem/C) | Hint |',path,root)[0]
             self.assertTrue(p['editorial'].endswith('solution/cf100947c.md'))
+
+class SheepCupTests(unittest.TestCase):
+    def test_round_links_and_tutorial_expansion(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            (root/'SheepCup/Round1').mkdir(parents=True)
+            round2=root/'SheepCup/Round2';(round2/'standard_solution').mkdir(parents=True)
+            (round2/'tutorial.md').write_text('|**A**|**题面标题**|10|\n### 中等偏易题\n#### A. 题解标题？\n说明\n### 较易题\n#### C. 是毛毛虫吗？')
+            (root/'SheepCup/Round3').mkdir()
+            rounds=module.build_sheep(root)
+            self.assertEqual(rounds[0]['accessCode'],'6u8k')
+            self.assertEqual(rounds[0]['contestUrl'],'https://www.luogu.com.cn/contest/222636')
+            self.assertEqual(rounds[0]['problems'],[])
+            self.assertEqual(len(rounds[1]['problems']),2)
+            problem=rounds[1]['problems'][0]
+            self.assertEqual(problem['title'],'题面标题')
+            self.assertEqual(problem['difficulty'],'中等偏易题')
+            self.assertEqual(problem['url'],'https://ac.nowcoder.com/acm/contest/100672/A')
+            self.assertTrue(problem['editorial'].endswith('#a-%E9%A2%98%E8%A7%A3%E6%A0%87%E9%A2%98'))
+            self.assertTrue(rounds[1]['standardSolution'].endswith('Round2/standard_solution'))
+            self.assertEqual(rounds[2]['title'],'小羊杯 Round 3')
+            self.assertNotIn('contestUrl',rounds[2])

@@ -91,6 +91,42 @@ def build_tracks(root, metadata, daily):
             source=REPO_URL+quote(path,safe='/'),problems=list(records.values())))
     return tracks
 
+def build_sheep(root):
+    folder=root/'SheepCup'
+    if not folder.is_dir():return []
+    config_path=Path(__file__).resolve().parents[1]/'config/sheep-cup.json'
+    config=json.loads(config_path.read_text()) if config_path.exists() else {}
+    rounds=[]
+    for directory in sorted((d for d in folder.iterdir() if d.is_dir()),key=lambda d:int(re.search(r'\d+',d.name).group()) if re.search(r'\d+',d.name) else 10000):
+        info=dict(config.get(directory.name,{}))
+        info.setdefault('title','小羊杯 '+directory.name.replace('Round','Round '))
+        info['id']=directory.name
+        relative=directory.relative_to(root).as_posix()
+        info['source']='https://github.com/Yawn-Sean/Daily_CF_Problems/tree/main/'+quote(relative,safe='/')
+        info['editorial']=None
+        info['standardSolution']=info['source']+'/standard_solution' if (directory/'standard_solution').is_dir() else None
+        info['problems']=[]
+        tutorial=directory/'tutorial.md'
+        if tutorial.is_file():
+            info['editorial']=REPO_URL+quote(tutorial.relative_to(root).as_posix(),safe='/')
+            text=tutorial.read_text()
+            titles=dict(re.findall(r'^\|\*\*([A-Z])\*\*\|\*\*([^|]+?)\*\*\|',text,re.M))
+            difficulty=''
+            for line in text.splitlines():
+                group=re.match(r'^### (.+)$',line)
+                if group:difficulty=group.group(1)
+                match=re.match(r'^#### ([A-Z])\. (.+)$',line)
+                if not match:continue
+                index,title=match.groups()
+                slug=re.sub(r'[^\w\s-]','',index+'. '+title).strip().lower().replace(' ','-')
+                template=info.get('problemUrlTemplate')
+                info['problems'].append(dict(index=index,title=titles.get(index,title),difficulty=difficulty,
+                    url=template.format(index=index) if template else None,
+                    editorial=info['editorial']+'#'+quote(slug)))
+            info['problems'].sort(key=lambda p:p['index'])
+        rounds.append(info)
+    return rounds
+
 def build(root, metadata=None):
     records=[]
     files=sorted((root/'daily_problems').rglob('problems.md'))
@@ -103,7 +139,7 @@ def build(root, metadata=None):
         enrich(p,metadata)
     tracks=build_tracks(root,metadata,records)
     records.sort(key=lambda p:(p['date'],p['rating'] or 0,p['id']), reverse=True)
-    return dict(generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(), source='Yawn-Sean/Daily_CF_Problems', days=len({p['date'] for p in records}), problems=records, tracks=tracks)
+    return dict(generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(), source='Yawn-Sean/Daily_CF_Problems', days=len({p['date'] for p in records}), problems=records, tracks=tracks, sheepRounds=build_sheep(root))
 
 if __name__=='__main__':
     ap=argparse.ArgumentParser()

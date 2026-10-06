@@ -30,6 +30,7 @@ jobs:
           sparse-checkout: |
             daily_problems
             categories
+            SheepCup
       - run: python scripts/update_metadata.py
       - run: python scripts/build_index.py upstream
       - run: python -m unittest discover -s tests

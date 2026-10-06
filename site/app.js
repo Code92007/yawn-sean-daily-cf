@@ -3,6 +3,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 const save=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v))}catch{$('accountStatus').textContent='浏览器无法保存本地记录；本次操作仍有效。'}};
+let sheepRounds=[],indexMeta={};
 let tracks=[],allTrackProblems=[],mode='daily',activeTrack='all',ready=false,loadError='',ratingAscending=true;
 let problems=[],category='all',page=1,descending=true,remote={},busy=false,currentHandle=read('dcf.handle','');
 const manual={};
@@ -18,11 +19,25 @@ function cell(p){
  return `<td class="problemcell ${state==='solved'?'complete':''}"><div class="problem"><span class="dot" style="border-color:${color};${state==='solved'?'background:'+color:''}"></span><a style="color:${color}" title="${esc(p.id+(p.name?' · '+p.name:''))}" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.id)}${p.name?' · '+esc(p.name):''}</a></div><div class="cellmeta">${p.divisions.map(d=>`<span class="badge" title="${esc(p.contestName||'')}">${divisionLabels[d]||esc(d)}</span>`).join('')}<span class="rating" style="color:${color}">${p.estimated?'*':''}${p.rating??'—'}</span></div>${topicTags?`<div class="topic-tags">${topicTags}</div>`:''}${$('hints').checked&&p.hint?`<div class="hint">${esc(p.hint)}</div>`:''}<div class="cellactions"><a href="${esc(p.source)}" target="_blank" rel="noopener">原文 ↗</a>${p.editorial?`<a href="${esc(p.editorial)}" target="_blank" rel="noopener">题解 ↗</a>`:''}</div></td>`;
 }
 function setTopic(id){activeTrack=id;page=1;updateHash();render();}
-function updateHash(){const hash=mode==='tracks'?'#tracks/'+encodeURIComponent(activeTrack):'#daily';history.replaceState(null,'',hash);}
-function loadHash(){const parts=location.hash.slice(1).split('/');mode=parts[0]==='tracks'?'tracks':'daily';try{activeTrack=decodeURIComponent(parts[1]||'all')}catch{activeTrack='all'}page=1;}
+function updateHash(){const hash=mode==='tracks'?'#tracks/'+encodeURIComponent(activeTrack):mode==='sheep'?'#sheep':'#daily';history.replaceState(null,'',hash);}
+function loadHash(){const parts=location.hash.slice(1).split('/');mode=['tracks','sheep'].includes(parts[0])?parts[0]:'daily';try{activeTrack=decodeURIComponent(parts[1]||'all')}catch{activeTrack='all'}page=1;}
 loadHash();
 window.addEventListener('hashchange',()=>{loadHash();render()});
+function renderSheep(){
+ if(!ready){$('sheepPanel').innerHTML=`<p class="empty">${esc(loadError||'正在加载小羊杯资料…')}</p>`;return;}
+ $('sheepPanel').innerHTML=sheepRounds.map(round=>`<article class="sheep-card"><div class="sheep-card-heading"><div><h2>${esc(round.title)}</h2><span class="badge">${esc(round.platform||'题解资料')}</span>${round.problems.length?`<span class="sheep-count">${round.problems.length} 道题</span>`:''}</div><div class="sheep-actions">${round.contestUrl?`<a class="contest-link" href="${esc(round.contestUrl)}" target="_blank" rel="noopener">前往补题 ↗</a>`:''}<a href="${esc(round.editorial||round.source)}" target="_blank" rel="noopener">${round.editorial?'文字题解':'题解目录'} ↗</a>${round.standardSolution?`<a href="${esc(round.standardSolution)}" target="_blank" rel="noopener">标准代码 ↗</a>`:''}</div></div>${round.accessCode?`<p class="access-code">洛谷访问码：<code>${esc(round.accessCode)}</code><button class="copy-code light" data-code="${esc(round.accessCode)}">复制</button></p>`:''}${round.problems.length?`<details><summary>展开 ${round.problems.length} 道题</summary><div class="tablewrap"><table class="sheep-table"><thead><tr><th>编号</th><th>题目</th><th>难度分档</th><th>题解</th></tr></thead><tbody>${round.problems.map(p=>`<tr><td>${esc(p.index)}</td><td>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a>`:esc(p.title)}</td><td>${esc(p.difficulty||'—')}</td><td><a href="${esc(p.editorial)}" target="_blank" rel="noopener">题解 ↗</a></td></tr>`).join('')}</tbody></table></div></details>`:''}</article>`).join('')||'<p class="empty">暂无小羊杯资料。</p>';
+}
+$('sheepPanel').onclick=async e=>{const button=e.target.closest('[data-code]');if(!button)return;try{await navigator.clipboard.writeText(button.dataset.code);button.textContent='已复制';}catch{button.textContent='请手动复制';}};
 function render(){
+ const isSheep=mode==='sheep';
+ document.querySelector('.account').hidden=isSheep;
+ document.querySelector('.toolbar').hidden=isSheep;
+ document.querySelector('.tabs').hidden=isSheep;
+ $('problemLayout').hidden=isSheep;$('sheepPanel').hidden=!isSheep;
+ document.querySelector('.note').hidden=isSheep;
+ document.querySelectorAll('.modules button').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode);b.setAttribute('aria-pressed',b.dataset.mode===mode)});
+ if(ready)$('update').textContent=`资料更新 ${new Date(indexMeta.generatedAt).toLocaleString('zh-CN')}`+(isSheep?'':` · ${indexMeta.days} 天`);
+ if(isSheep){document.title='Yawn-Sean Daily CF Problems · 小羊杯';$('title').textContent='小羊杯';$('description').textContent='洛谷 / 牛客补题入口，以及小羊杯官方题解与标准代码。';renderSheep();return;}
  const topic=tracks.find(t=>t.id===activeTrack);
  if(mode==='tracks'&&activeTrack!=='all'&&!topic&&ready)activeTrack='all';
  const isTracks=mode==='tracks';
@@ -95,4 +110,4 @@ $('accountForm').addEventListener('submit',async e=>{
  finally{busy=false;$('sync').disabled=false;$('clear').disabled=false;$('handle').disabled=false;}
 });
 render();
-try{const response=await fetch('./data/problems.json?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error(`HTTP ${response.status}`);const data=await response.json();problems=data.problems;tracks=data.tracks||[];allTrackProblems=combineTracks(tracks);ready=true;$('update').textContent=`题库更新 ${new Date(data.generatedAt).toLocaleString('zh-CN')} · ${data.days} 天`;render();}catch(e){loadError=`题库加载失败：${e.message}，请刷新重试`;render();}
+try{const response=await fetch('./data/problems.json?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error(`HTTP ${response.status}`);const data=await response.json();indexMeta=data;sheepRounds=data.sheepRounds||[];problems=data.problems;tracks=data.tracks||[];allTrackProblems=combineTracks(tracks);ready=true;$('update').textContent=`题库更新 ${new Date(data.generatedAt).toLocaleString('zh-CN')} · ${data.days} 天`;render();}catch(e){loadError=`题库加载失败：${e.message}，请刷新重试`;render();}

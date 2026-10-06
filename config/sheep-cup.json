@@ -1,0 +1,14 @@
+{
+  "Round1": {
+    "title": "小羊杯 Round 1",
+    "platform": "洛谷",
+    "contestUrl": "https://www.luogu.com.cn/contest/222636",
+    "accessCode": "6u8k"
+  },
+  "Round2": {
+    "title": "小羊杯 Round 2",
+    "platform": "牛客",
+    "contestUrl": "https://ac.nowcoder.com/acm/contest/100672",
+    "problemUrlTemplate": "https://ac.nowcoder.com/acm/contest/100672/{index}"
+  }
+}
