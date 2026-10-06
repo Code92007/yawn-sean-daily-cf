@@ -3,8 +3,15 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '35 1,9,17 * * *'
+    # Asia/Shanghai: 08–12 and 20–24 hourly; 12–20 every four hours.
+    - cron: '0 0,1,2,3,4,8,12,13,14,15,16 * * *'
   workflow_dispatch:
+    inputs:
+      approve_change:
+        description: '确认合并历史差异的 ID（留空则仅增量更新）'
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: write
   pages: write
@@ -27,12 +34,15 @@ jobs:
         with:
           repository: Yawn-Sean/Daily_CF_Problems
           path: upstream
+          fetch-depth: 100
           sparse-checkout: |
             daily_problems
             categories
             SheepCup
       - run: python scripts/update_metadata.py
-      - run: python scripts/build_index.py upstream
+      - run: python scripts/build_index.py upstream --approve-change "$APPROVE_CHANGE"
+        env:
+          APPROVE_CHANGE: ${{ inputs.approve_change }}
       - run: python -m unittest discover -s tests
       - run: node --test tests/core.test.mjs
       - name: Keep refreshed data in repository

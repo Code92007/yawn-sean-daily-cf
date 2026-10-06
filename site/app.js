@@ -11,6 +11,27 @@ const size=50;
 $('handle').value=currentHandle;
 function loadCache(){const cached=read('dcf.cache.'+currentHandle.toLowerCase(),null);remote=cached?.statuses||{};if(cached)$('accountStatus').textContent=`${currentHandle} · 缓存于 ${new Date(cached.at).toLocaleString('zh-CN')}，可重新同步`;}
 loadCache();
+let historicalChanges=[];
+function renderNotifications(){
+ const count=historicalChanges.length;
+ $('notificationCount').hidden=!count;$('notificationCount').textContent=count;
+ $('notifications').setAttribute('aria-label',`历史数据变更通知，${count} 条待确认`);
+ const fields={id:'题号',rating:'难度',estimated:'估计难度',hint:'提示',url:'题目链接',editorial:'题解',aliases:'别名'};
+ const display=value=>value==null?'—':Array.isArray(value)?value.join('、'):String(value);
+ $('historyChanges').innerHTML=count?historicalChanges.map(change=>{
+  const before=new Map(change.before.map(p=>[p.key,p])),after=new Map(change.after.map(p=>[p.key,p]));
+  const differences=[...new Set([...before.keys(),...after.keys()])].flatMap(key=>{
+   const old=before.get(key),next=after.get(key);
+   if(!old||!next)return `<tr><td>${esc((old||next).id)} · ${old?'移除题目':'新增题目'}</td><td>${esc(old?old.id:'—')}</td><td>${esc(next?next.id:'—')}</td></tr>`;
+   return Object.entries(fields).filter(([field])=>JSON.stringify(old[field])!==JSON.stringify(next[field])).map(([field,label])=>`<tr><td>${esc(old.id)} · ${label}</td><td>${esc(display(old[field]))}</td><td>${esc(display(next[field]))}</td></tr>`);
+  }).join('');
+  return `<article class="history-card"><h3>${esc(change.date)} <span class="badge">待确认</span></h3><a href="https://github.com/Yawn-Sean/Daily_CF_Problems/commits/main/${esc(change.path)}" target="_blank" rel="noopener">查看上游修改记录 ↗</a>${change.error?'<p class="error">上游内容暂时无法解析，保留原数据，请先检查上游文件。</p>':`<div class="tablewrap"><table class="history-table"><thead><tr><th>变更项</th><th>当前数据</th><th>上游数据</th></tr></thead><tbody>${differences||'<tr><td colspan="3">来源信息有变化，请查看上游修改记录。</td></tr>'}</tbody></table></div><p>保留原数据无需操作。确认合并时，复制差异 ID，在更新工作流的 Run workflow 中填入 approve_change 后运行。此操作仅修改该日期。</p><div class="history-actions"><button class="light" data-copy-change="${esc(change.id)}">复制差异 ID</button><a href="https://github.com/Code92007/yawn-sean-daily-cf/actions/workflows/pages.yml" target="_blank" rel="noopener">打开更新工作流 ↗</a></div><code>${esc(change.id)}</code>`}</article>`;
+ }).join(''):'<p class="history-empty">暂无待确认的历史数据变更。</p>';
+}
+$('notifications').onclick=()=>{$('historyDialog').showModal()};
+$('closeHistory').onclick=()=>{$('historyDialog').close()};
+$('historyChanges').onclick=async e=>{const button=e.target.closest('[data-copy-change]');if(!button)return;try{await navigator.clipboard.writeText(button.dataset.copyChange);button.textContent='已复制';}catch{button.textContent='请复制下方 ID';}};
+renderNotifications();
 const divisionLabels={div1:'Div. 1',div2:'Div. 2',div3:'Div. 3',div4:'Div. 4',div12:'Div. 1 + Div. 2',educational:'Educational',global:'Global',icpc:'ICPC Mirror',gym:'Gym',other:'其他'};
 function cell(p){
  if(!p)return '<td class="problemcell emptycell">—</td>';
@@ -113,4 +134,4 @@ $('accountForm').addEventListener('submit',async e=>{
  finally{busy=false;$('sync').disabled=false;$('clear').disabled=false;$('handle').disabled=false;}
 });
 render();
-try{const response=await fetch('./data/problems.json?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error(`HTTP ${response.status}`);const data=await response.json();indexMeta=data;sheepRounds=data.sheepRounds||[];problems=data.problems;tracks=data.tracks||[];allTrackProblems=combineTracks(tracks);ready=true;$('update').textContent=`题库更新 ${new Date(data.generatedAt).toLocaleString('zh-CN')} · ${data.days} 天`;render();}catch(e){loadError=`题库加载失败：${e.message}，请刷新重试`;render();}
+try{const response=await fetch('./data/problems.json?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error(`HTTP ${response.status}`);const data=await response.json();indexMeta=data;historicalChanges=data.historicalChanges||[];renderNotifications();sheepRounds=data.sheepRounds||[];problems=data.problems;tracks=data.tracks||[];allTrackProblems=combineTracks(tracks);ready=true;$('update').textContent=`题库更新 ${new Date(data.generatedAt).toLocaleString('zh-CN')} · ${data.days} 天`;render();}catch(e){loadError=`题库加载失败：${e.message}，请刷新重试`;render();}
