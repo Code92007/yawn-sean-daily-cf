@@ -2,3 +2,5 @@
 table{table-layout:fixed;min-width:760px}th:first-child{width:155px}.problemcell{vertical-align:top;white-space:normal}.datecell{vertical-align:middle}.problem{max-width:none}.problem a{white-space:nowrap}.cellmeta{display:flex;align-items:center;gap:5px;margin:6px 0 0 20px}.cellmeta .rating{margin-left:auto;font-size:12px}.cellactions{margin:7px 0 0 20px;display:flex;align-items:center;gap:8px;font-size:11px}.cellactions .manual{padding:1px 6px;font-size:11px}.problemcell.complete{background:#eefaf2}.emptycell{text-align:center;color:#c6cbd0}.hint{max-width:none}@media(max-width:700px){header .brand{font-size:16px}header a:last-child{font-size:11px}header{gap:8px}.tablewrap table{min-width:700px}th:first-child{width:125px}}
 
 .problemcell.complete,.datecell.complete{background:#c3e6cb}.greenkey{width:13px;height:13px;background:#c3e6cb;border:1px solid #a6d7b1;border-radius:2px}.cellactions{margin-top:4px}.cellmeta{margin-top:4px}td{padding:10px 16px}
+
+.tabs{overflow-x:auto}.tabs button{flex-shrink:0}

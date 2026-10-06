@@ -9,17 +9,23 @@ def fetch(method):
     if data['status']!='OK':raise ValueError(data.get('comment','Codeforces API failed'))
     return data['result']
 
+def classify(name):
+    categories=[f'div{i}' for i in (1,2,3,4) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)]
+    if re.search(r'Global\s+Round',name,re.I):categories.append('global')
+    if re.search(r'ICPC|NEERC|NERC',name,re.I) and re.search(r'mirror',name,re.I):categories.append('icpc')
+    return categories or ['other']
+
 def merge(contests,problems,existing):
     contests={c['id']:c for c in contests}
     for cid,c in contests.items():
         name=c['name']
-        divs=[f'div{i}' for i in (1,2,3) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)] or ['other']
+        divs=classify(name)
         existing['contest:'+str(cid)]={'contestName':name,'divisions':divs}
     for p in problems:
         cid=p.get('contestId')
         if cid is None:continue
         name=contests.get(cid,{}).get('name','')
-        divs=[f'div{i}' for i in (1,2,3) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)] or ['other']
+        divs=classify(name)
         existing[str(cid)+':'+p['index'].upper()]={'name':p['name'],'contestName':name,'divisions':divs}
     return existing
 
