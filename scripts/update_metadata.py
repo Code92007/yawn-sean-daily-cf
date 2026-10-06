@@ -11,7 +11,9 @@ def fetch(method):
 
 def classify(name):
     categories=[f'div{i}' for i in (1,2,3,4) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)]
-    if re.search(r'Global\s+Round',name,re.I):categories.append('global')
+    if re.search(r'Global\s+Round',name,re.I) or re.search(r'Div\.?\s*1\s*\+\s*2\b',name,re.I):
+        categories=list(dict.fromkeys(categories+['div1','div2']))
+    if 'div1' in categories and 'div2' in categories:categories.append('div12')
     if re.search(r'ICPC|NEERC|NERC',name,re.I) and re.search(r'mirror',name,re.I):categories.append('icpc')
     return categories or ['other']
 
