@@ -27,8 +27,15 @@ class ClassificationTests(unittest.TestCase):
     def test_global_icpc_and_div4(self):
         spec=importlib.util.spec_from_file_location('metadata',Path(__file__).resolve().parents[1]/'scripts/update_metadata.py')
         metadata=importlib.util.module_from_spec(spec);spec.loader.exec_module(metadata)
-        self.assertEqual(metadata.classify('Codeforces Global Round 8'),['div1','div2','div12'])
+        self.assertEqual(metadata.classify('Codeforces Global Round 8'),['global'])
         self.assertEqual(metadata.classify('Codeforces Round 993 (Div. 4)'),['div4'])
         self.assertEqual(metadata.classify('2018-2019 ICPC, NEERC, Northern Eurasia Finals (Online Mirror)'),['icpc'])
         self.assertEqual(metadata.classify('Codeforces Beta Round (ACM-ICPC Rules)'),['other'])
-        self.assertEqual(metadata.classify('Codeforces Round (Div. 1 + Div. 2)'),['div1','div2','div12'])
+        self.assertEqual(metadata.classify('Codeforces Round (Div. 1 + Div. 2)'),['div12'])
+
+        self.assertEqual(metadata.classify('Educational Codeforces Round 71 (Rated for Div. 2)'),['educational'])
+        self.assertEqual(metadata.classify('Educational Codeforces Round 10'),['educational'])
+        self.assertEqual(metadata.classify('Hello 2025'),['div12'])
+        self.assertEqual(metadata.classify('Good Bye 2024'),['div12'])
+        self.assertEqual(metadata.classify('Testing Round 19 (Div. 3)',2010),['other'])
+        self.assertEqual(metadata.classify('think-cell Round 1',1930),['div12'])

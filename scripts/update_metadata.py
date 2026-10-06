@@ -9,25 +9,28 @@ def fetch(method):
     if data['status']!='OK':raise ValueError(data.get('comment','Codeforces API failed'))
     return data['result']
 
-def classify(name):
-    categories=[f'div{i}' for i in (1,2,3,4) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)]
-    if re.search(r'Global\s+Round',name,re.I) or re.search(r'Div\.?\s*1\s*\+\s*2\b',name,re.I):
-        categories=list(dict.fromkeys(categories+['div1','div2']))
-    if 'div1' in categories and 'div2' in categories:categories.append('div12')
-    if re.search(r'ICPC|NEERC|NERC',name,re.I) and re.search(r'mirror',name,re.I):categories.append('icpc')
-    return categories or ['other']
+def classify(name, contest_id=None):
+    # Match CFTracker's category precedence, then add ICPC mirrors.
+    if contest_id==2010:return ['other']  # Testing Round 19
+    if contest_id in (1930,2029):return ['div12']  # Joint rounds without Div in title
+    if re.search(r'Educational',name,re.I):return ['educational']
+    if re.search(r'Global',name,re.I):return ['global']
+    if re.search(r'ICPC|NEERC|NERC',name,re.I) and re.search(r'mirror',name,re.I):return ['icpc']
+    divs=[f'div{i}' for i in (1,2,3,4) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)]
+    if ('div1' in divs and 'div2' in divs) or re.search(r'Div\.?\s*1\s*\+\s*2\b|Good Bye|Hello',name,re.I):return ['div12']
+    return divs or ['other']
 
 def merge(contests,problems,existing):
     contests={c['id']:c for c in contests}
     for cid,c in contests.items():
         name=c['name']
-        divs=classify(name)
+        divs=classify(name,cid)
         existing['contest:'+str(cid)]={'contestName':name,'divisions':divs}
     for p in problems:
         cid=p.get('contestId')
         if cid is None:continue
         name=contests.get(cid,{}).get('name','')
-        divs=classify(name)
+        divs=classify(name,cid)
         existing[str(cid)+':'+p['index'].upper()]={'name':p['name'],'contestName':name,'divisions':divs}
     return existing
 
