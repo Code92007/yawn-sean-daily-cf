@@ -1,4 +1,4 @@
-import importlib.util,tempfile,unittest
+import importlib.util,tempfile,unittest,json,subprocess,sys
 from pathlib import Path
 spec=importlib.util.spec_from_file_location('build',Path(__file__).resolve().parents[1]/'scripts/build_index.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class ParserTests(unittest.TestCase):
@@ -75,6 +75,66 @@ class TopicListTests(unittest.TestCase):
             self.assertTrue(p['editorial'].endswith('solution/cf100947c.md'))
 
 class IncrementalTests(unittest.TestCase):
+    def test_cli_git_diff_notification_and_approval_round_trip(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)/'upstream';root.mkdir()
+            def git(*args):
+                return subprocess.check_output(['git','-C',str(root),'-c','user.name=Test','-c','user.email=test@example.com',*args],stderr=subprocess.DEVNULL,text=True).strip()
+            git('init')
+            file=root/'daily_problems/2020/01/0101/problems.md';file.parent.mkdir(parents=True)
+            row='| 2000 | [CF75D](https://codeforces.com/contest/75/problem/D) | Hint |'
+            file.write_text(row)
+            categories=root/'categories';categories.mkdir();(categories/'DP.md').write_text(row)
+            git('add','.');git('commit','-m','Baseline')
+            baseline=module.build(root);baseline['upstreamCommit']=git('rev-parse','HEAD')
+            output=Path(folder)/'index.json';output.write_text(json.dumps(baseline))
+            file.write_text(row.replace('2000','2100'));git('add','.');git('commit','-m','Historical correction')
+            command=[sys.executable,str(Path(__file__).resolve().parents[1]/'scripts/build_index.py'),str(root),'--output',str(output),'--metadata',str(Path(folder)/'missing.json')]
+            subprocess.check_output(command)
+            pending=json.loads(output.read_text())
+            self.assertEqual(pending['problems'],baseline['problems'])
+            self.assertEqual(len(pending['historicalChanges']),1)
+            subprocess.check_output(command)
+            self.assertEqual(json.loads(output.read_text())['historicalChanges'],pending['historicalChanges'])
+            subprocess.check_output(command+['--approve-change',pending['historicalChanges'][0]['id']])
+            approved=json.loads(output.read_text())
+            self.assertEqual(approved['problems'][0]['rating'],2100)
+            self.assertEqual(approved['historicalChanges'],[])
+            self.assertEqual(len(approved['historicalApprovals']),1)
+
+    def test_historical_notifications_and_explicit_approval(self):
+        spec=importlib.util.spec_from_file_location('history',Path(__file__).resolve().parents[1]/'scripts/history_changes.py')
+        history=importlib.util.module_from_spec(spec);spec.loader.exec_module(history)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);path='daily_problems/2026/10/1005/problems.md'
+            file=root/path;file.parent.mkdir(parents=True)
+            original='| 2000 | [CF75D](https://codeforces.com/contest/75/problem/D) | Original |'
+            file.write_text(original)
+            previous=module.build(root)
+            file.write_text(original.replace('2000','2100').replace('Original','Updated'))
+            changes=history.inspect(root,previous,[path,path],module.parse,module.enrich,{},'2026-10-07')
+            self.assertEqual(len(changes),1)
+            self.assertEqual(changes[0]['after'][0]['rating'],2100)
+            self.assertEqual(module.build(root,{},previous,today='2026-10-07')['problems'],previous['problems'])
+            previous['historicalChanges']=changes
+            repeated=history.inspect(root,previous,[path],module.parse,module.enrich,{},'2026-10-07')
+            self.assertEqual(repeated,changes)
+            with self.assertRaises(ValueError):history.approve(previous,'outdated-id')
+            approved=history.approve(previous,changes[0]['id'])
+            self.assertEqual(approved['problems'][0]['rating'],2100)
+            self.assertEqual(approved['historicalChanges'],[])
+            self.assertEqual(previous['problems'][0]['rating'],2000)
+            self.assertEqual(module.build(root,{},approved,today='2026-10-07')['problems'],approved['problems'])
+            file.write_text(original)
+            self.assertEqual(history.inspect(root,previous,[path],module.parse,module.enrich,{},'2026-10-07'),[])
+            file.unlink()
+            deleted=history.inspect(root,previous,[path],module.parse,module.enrich,{},'2026-10-07')
+            self.assertEqual(deleted[0]['after'],[])
+            file.write_text('unsupported upstream format')
+            invalid=history.inspect(root,previous,[path],module.parse,module.enrich,{},'2026-10-07')
+            previous['historicalChanges']=invalid
+            with self.assertRaises(ValueError):history.approve(previous,invalid[0]['id'])
+
     def test_history_survives_edits_deletions_and_metadata_changes(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)

@@ -176,9 +176,20 @@ if __name__=='__main__':
     ap.add_argument('upstream',type=Path)
     ap.add_argument('--output',type=Path,default=Path('site/data/problems.json'))
     ap.add_argument('--metadata',type=Path,default=Path('site/data/metadata.json'))
+    ap.add_argument('--approve-change',default='',help='Explicitly approved historical change ID')
     args=ap.parse_args()
     previous=json.loads(args.output.read_text()) if args.output.exists() else {}
-    data=build(args.upstream,json.loads(args.metadata.read_text()) if args.metadata.exists() else {},previous)
+    from history_changes import recent_paths,inspect,approve
+    metadata=json.loads(args.metadata.read_text()) if args.metadata.exists() else {}
+    if args.approve_change:
+        previous=approve(previous,args.approve_change)
+    today=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date().isoformat()
+    upstream_commit,paths=recent_paths(args.upstream,previous.get('upstreamCommit'))
+    # Recheck pending dates as well, so an upstream revert clears the warning.
+    paths.extend(c['path'] for c in previous.get('historicalChanges',[]))
+    changes=inspect(args.upstream,previous,paths,parse,enrich,metadata,today)
+    data=build(args.upstream,metadata,previous,today)
+    data.update(upstreamCommit=upstream_commit,historicalChanges=changes,historicalApprovals=previous.get('historicalApprovals',[]))
     if not data['tracks']:
         raise ValueError('Missing categories: checkout daily_problems and categories before building')
     args.output.parent.mkdir(parents=True,exist_ok=True)
