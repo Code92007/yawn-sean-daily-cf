@@ -4,7 +4,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
 const save=(key,v)=>{try{localStorage.setItem(key,JSON.stringify(v))}catch{$('accountStatus').textContent='浏览器无法保存本地记录；本次操作仍有效。'}};
 let sheepRounds=[],indexMeta={};
-let tracks=[],allTrackProblems=[],mode='daily',activeTrack='all',ready=false,loadError='',ratingAscending=true;
+let tracks=[],allTrackProblems=[],mode='daily',activeTrack='all',ready=false,loadError='',ratingAscending=true,trackSort='rating',trackDateDescending=true;
 let problems=[],category='all',page=1,descending=true,remote={},busy=false,currentHandle=read('dcf.handle','');
 const manual={};
 const size=50;
@@ -55,7 +55,7 @@ function render(){
  const done=t.problems.filter(p=>statusOf(p,remote,manual)==='solved').length;
  return `<button data-track="${esc(t.id)}" class="topic-choice ${t.id===activeTrack?'active':''} ${t.problems.length>0&&done===t.problems.length?'complete':''}" aria-pressed="${t.id===activeTrack}"><span>${esc(t.label)}${t.id==='all'?'':`<small>${esc(t.id)}</small>`}</span><span class="topic-count">${done} / ${t.problems.length}</span></button>`;
  }).join('');
- $('tableHead').innerHTML=isTracks?`<tr><th>序号</th><th><button data-sort>题目 · 难度 ${ratingAscending?'↑':'↓'}</button></th><th>每日一题日期</th></tr>`:`<tr><th><button data-sort>日期 ${descending?'↓':'↑'}</button></th><th>题目 1</th><th>题目 2</th></tr>`;
+ $('tableHead').innerHTML=isTracks?`<tr><th>序号</th><th><button data-sort="rating">题目 · 难度 ${trackSort==='rating'?(ratingAscending?'↑':'↓') : ''}</button></th><th><button data-sort="track-date" title="降序按最近出现日期，升序按最早出现日期；无日期排在最后">每日一题日期 ${trackSort==='date'?(trackDateDescending?'↓':'↑'):''}</button></th></tr>`:`<tr><th><button data-sort>日期 ${descending?'↓':'↑'}</button></th><th>题目 1</th><th>题目 2</th></tr>`;
  if(!ready){$('summary').textContent=loadError||'正在加载题库…';$('summary').classList.toggle('error',!!loadError);$('rows').innerHTML='';$('prev').disabled=true;$('next').disabled=true;return;}
  const filters=Object.fromEntries(['query','start','end','min','max','completion'].map(id=>[id,$(id).value]));filters.category=category;
  const base=isTracks?(topic?.problems||allTrackProblems):problems;
@@ -63,7 +63,10 @@ function render(){
  const count=new Set(matched.map(p=>p.key)).size,solved=new Set(matched.filter(p=>statusOf(p,remote,manual)==='solved').map(p=>p.key)).size;
  let units;
  if(isTracks){
-  matched.sort((a,b)=>(a.rating==null)-(b.rating==null)||(ratingAscending?1:-1)*((a.rating??0)-(b.rating??0))||a.id.localeCompare(b.id,undefined,{numeric:true}));
+  if(trackSort==='date'){
+   const dateOf=p=>{const dates=[...(p.dates||[])].sort();return dates.length?(trackDateDescending?dates.at(-1):dates[0]):null;};
+   matched.sort((a,b)=>{const ad=dateOf(a),bd=dateOf(b);return (ad===null)-(bd===null)||(trackDateDescending?-1:1)*(ad||'').localeCompare(bd||'')||a.id.localeCompare(b.id,undefined,{numeric:true});});
+  }else matched.sort((a,b)=>(a.rating==null)-(b.rating==null)||(ratingAscending?1:-1)*((a.rating??0)-(b.rating??0))||a.id.localeCompare(b.id,undefined,{numeric:true}));
   units=matched;
   $('summary').textContent=`${topic?topic.label:'全部题单'} · ${count} 道题 · 已完成 ${solved} 道`;
  }else{
@@ -89,7 +92,7 @@ document.querySelector('.tabs').addEventListener('click',e=>{if(!e.target.datase
 document.querySelector('.modules').onclick=e=>{const button=e.target.closest('[data-mode]');if(!button)return;mode=button.dataset.mode;page=1;updateHash();render();};
 $('topicChoices').onclick=e=>{const button=e.target.closest('[data-track]');if(button)setTopic(button.dataset.track)};
 $('rows').onclick=e=>{const topic=e.target.closest('[data-track]');if(topic){setTopic(topic.dataset.track);return;}const date=e.target.closest('[data-date]');if(date){mode='daily';$('query').value=date.dataset.problem;$('start').value=date.dataset.date;$('end').value=date.dataset.date;category='all';document.querySelectorAll('.tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.category==='all');b.setAttribute('aria-pressed',b.dataset.category==='all')});page=1;updateHash();render();}};
-$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('tableHead').onclick=e=>{if(!e.target.hasAttribute('data-sort'))return;if(mode==='tracks')ratingAscending=!ratingAscending;else descending=!descending;page=1;render()};
+$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('tableHead').onclick=e=>{const button=e.target.closest('[data-sort]');if(!button)return;if(mode==='tracks'){if(button.dataset.sort==='track-date'){if(trackSort==='date')trackDateDescending=!trackDateDescending;else trackDateDescending=true;trackSort='date';}else{if(trackSort==='rating')ratingAscending=!ratingAscending;trackSort='rating';}}else descending=!descending;page=1;render()};
 $('reset').onclick=()=>{for(const id of ['query','start','end','min','max'])$(id).value='';$('completion').value='all';category='all';document.querySelectorAll('.tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.category==='all');b.setAttribute('aria-pressed',b.dataset.category==='all')});page=1;render()};
 $('clear').onclick=()=>{if(busy)return;currentHandle='';$('handle').value='';remote={};save('dcf.handle','');$('accountStatus').textContent='输入 ID，查看公开提交记录';render()};
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
