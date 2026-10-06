@@ -45,6 +45,8 @@ def build(root, metadata=None):
     for p in records:
         meta=(metadata or {}).get(str(p['contestId'])+':'+p['index'], {})
         p.update(meta)
+        if p['kind']=='cf':
+            p.update((metadata or {}).get('contest:'+str(p['contestId']), {}))
         p.setdefault('divisions', ['gym'] if p['kind']=='gym' else ['other'])
     records.sort(key=lambda p:(p['date'],p['rating'] or 0,p['id']), reverse=True)
     return dict(generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(), source='Yawn-Sean/Daily_CF_Problems', days=len({p['date'] for p in records}), problems=records)

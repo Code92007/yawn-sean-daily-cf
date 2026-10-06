@@ -11,11 +11,15 @@ def fetch(method):
 
 def merge(contests,problems,existing):
     contests={c['id']:c for c in contests}
+    for cid,c in contests.items():
+        name=c['name']
+        divs=[f'div{i}' for i in (1,2,3) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)] or ['other']
+        existing['contest:'+str(cid)]={'contestName':name,'divisions':divs}
     for p in problems:
         cid=p.get('contestId')
         if cid is None:continue
         name=contests.get(cid,{}).get('name','')
-        divs=[f'div{i}' for i in (1,2) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)] or ['other']
+        divs=[f'div{i}' for i in (1,2,3) if re.search(r'Div\.?\s*'+str(i)+r'\b',name,re.I)] or ['other']
         existing[str(cid)+':'+p['index'].upper()]={'name':p['name'],'contestName':name,'divisions':divs}
     return existing
 
@@ -26,7 +30,7 @@ if __name__=='__main__':
         if args.fixtures:
             contests=json.loads((args.fixtures/'contests.json').read_text())['result'];problems=json.loads((args.fixtures/'cf-problems.json').read_text())['result']['problems']
         else:
-            contests=fetch('contest.list?gym=false');time.sleep(2.2);problems=fetch('problemset.problems')['problems']
+            contests=fetch('contest.list?gym=false');old=merge(contests,[],old);time.sleep(2.2);problems=fetch('problemset.problems')['problems']
         old=merge(contests,problems,old)
     except Exception as error:
         if not old:raise
