@@ -44,7 +44,7 @@ function render(){
  document.querySelectorAll('.modules button').forEach(b=>{b.classList.toggle('active',b.dataset.mode===mode);b.setAttribute('aria-pressed',b.dataset.mode===mode)});
  document.title='Yawn-Sean Daily CF Problems · '+(isTracks?'题单':'每日一题');
  $('trackPanel').hidden=!isTracks;$('problemLayout').classList.toggle('with-topics',isTracks);
- document.querySelector('table').classList.toggle('track-table',isTracks);
+ $('problemTable').classList.toggle('track-table',isTracks);
  $('title').textContent=isTracks?(topic?`${topic.label} · ${topic.id}`:'算法题单'):'每日一题题库';
  $('description').textContent=isTracks?'选择算法专题，按难度练习，记录每道题的完成进度。':'按日期找到题目，记录每一道已完成的练习。';
  $('startLabel').textContent=isTracks?'每日日期 ≥':'开始日期';$('endLabel').textContent=isTracks?'每日日期 ≤':'结束日期';

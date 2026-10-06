@@ -74,6 +74,49 @@ class TopicListTests(unittest.TestCase):
             p=module.parse('| *1000 | [GYM100947C](https://codeforces.com/gym/100947/problem/C) | Hint |',path,root)[0]
             self.assertTrue(p['editorial'].endswith('solution/cf100947c.md'))
 
+class IncrementalTests(unittest.TestCase):
+    def test_history_survives_edits_deletions_and_metadata_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            old=root/'daily_problems/2026/10/1005/problems.md'
+            old.parent.mkdir(parents=True)
+            row='| 2000 | [CF75D](https://codeforces.com/contest/75/problem/D) | Original |'
+            old.write_text(row)
+            categories=root/'categories';categories.mkdir()
+            (categories/'DP.md').write_text(row)
+            (categories/'trees.md').write_text(row)
+            previous=module.build(root)
+            old.write_text('Upstream historical file is now invalid')
+            new=root/'daily_problems/2026/10/1007/problems.md'
+            new.parent.mkdir(parents=True);new.write_text(row)
+            new_row='| 1500 | [CF1A](https://codeforces.com/contest/1/problem/A) | New |'
+            (categories/'DP.md').write_text(new_row)
+            (categories/'trees.md').unlink()
+            data=module.build(root,{'75:D':{'rating':3000,'name':'Changed'}},previous,today='2026-10-07')
+            historical=[p for p in data['problems'] if p['date']=='2026-10-05']
+            self.assertEqual(historical,previous['problems'])
+            self.assertEqual(data['days'],2)
+            tracks={t['id']:t for t in data['tracks']}
+            self.assertEqual({p['key'] for p in tracks['DP']['problems']},{'cf:75:D','cf:1:A'})
+            self.assertEqual(tracks['trees']['problems'][0]['dates'],['2026-10-05','2026-10-07'])
+            old.unlink()
+            again=module.build(root,{},data,today='2026-10-08')
+            self.assertEqual(again['problems'],data['problems'])
+
+    def test_current_day_can_finish_updating_without_removing_appearances(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);file=root/'daily_problems/2026/10/1007/problems.md'
+            file.parent.mkdir(parents=True)
+            row='| 2000 | [CF75D](https://codeforces.com/contest/75/problem/D) | Hint |'
+            file.write_text(row)
+            previous=module.build(root)
+            file.write_text(row.replace('2000','2100')+'\n| 1500 | [CF1A](https://codeforces.com/contest/1/problem/A) | New |')
+            data=module.build(root,{},previous,today='2026-10-07')
+            self.assertEqual(len(data['problems']),2)
+            self.assertEqual(next(p for p in data['problems'] if p['key']=='cf:75:D')['rating'],2100)
+            file.write_text(row)
+            self.assertEqual(len(module.build(root,{},data,today='2026-10-07')['problems']),2)
+
 class SheepCupTests(unittest.TestCase):
     def test_round_links_and_tutorial_expansion(self):
         with tempfile.TemporaryDirectory() as folder:

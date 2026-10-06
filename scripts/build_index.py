@@ -133,19 +133,43 @@ def build_sheep(root):
         rounds.append(info)
     return rounds
 
-def build(root, metadata=None):
+def build(root, metadata=None, previous=None, today=None):
+    previous=previous or {}
+    today=today or dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date().isoformat()
+    historical=[p for p in previous.get('problems',[]) if p['date']<today]
+    frozen_dates={p['date'] for p in historical}
     records=[]
     files=sorted((root/'daily_problems').rglob('problems.md'))
     if not files:
         raise ValueError('No daily problem files')
     for file in files:
+        match=PATH.search(file.relative_to(root).as_posix())
+        if match:
+            year,month,day=match.groups()
+            if f'{year}-{month}-{day[2:]}' in frozen_dates:
+                continue
         records.extend(parse(file.read_text(), file.relative_to(root).as_posix(), root))
     metadata=metadata or {}
     for p in records:
         enrich(p,metadata)
+    # Historical daily rows are immutable, even if upstream removes or edits a day.
+    identities={(p['date'],p['key']) for p in records}
+    records.extend(p for p in previous.get('problems',[]) if p['date'] in frozen_dates or (p['date'],p['key']) not in identities)
     tracks=build_tracks(root,metadata,records)
+    dates={}
+    for p in records:
+        dates.setdefault(p['key'],set()).add(p['date'])
+    old_tracks={t['id']:t for t in previous.get('tracks',[])}
+    for track in tracks:
+        current={p['key'] for p in track['problems']}
+        track['problems'].extend(dict(p,dates=sorted(dates.get(p['key'],[]))) for p in old_tracks.get(track['id'],{}).get('problems',[]) if p['key'] not in current)
+    current_tracks={t['id'] for t in tracks}
+    tracks.extend(dict(t,problems=[dict(p,dates=sorted(dates.get(p['key'],[]))) for p in t['problems']]) for t in old_tracks.values() if t['id'] not in current_tracks)
+    sheep=build_sheep(root)
+    current_rounds={r['id'] for r in sheep}
+    sheep.extend(r for r in previous.get('sheepRounds',[]) if r['id'] not in current_rounds)
     records.sort(key=lambda p:(p['date'],p['rating'] or 0,p['id']), reverse=True)
-    return dict(generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(), source='Yawn-Sean/Daily_CF_Problems', days=len({p['date'] for p in records}), problems=records, tracks=tracks, sheepRounds=build_sheep(root))
+    return dict(generatedAt=dt.datetime.now(dt.timezone.utc).isoformat(), source='Yawn-Sean/Daily_CF_Problems', days=len({p['date'] for p in records}), problems=records, tracks=tracks, sheepRounds=sheep)
 
 if __name__=='__main__':
     ap=argparse.ArgumentParser()
@@ -153,7 +177,8 @@ if __name__=='__main__':
     ap.add_argument('--output',type=Path,default=Path('site/data/problems.json'))
     ap.add_argument('--metadata',type=Path,default=Path('site/data/metadata.json'))
     args=ap.parse_args()
-    data=build(args.upstream,json.loads(args.metadata.read_text()) if args.metadata.exists() else {})
+    previous=json.loads(args.output.read_text()) if args.output.exists() else {}
+    data=build(args.upstream,json.loads(args.metadata.read_text()) if args.metadata.exists() else {},previous)
     if not data['tracks']:
         raise ValueError('Missing categories: checkout daily_problems and categories before building')
     args.output.parent.mkdir(parents=True,exist_ok=True)
