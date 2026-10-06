@@ -89,6 +89,11 @@ class IncrementalTests(unittest.TestCase):
             baseline=module.build(root);baseline['upstreamCommit']=git('rev-parse','HEAD')
             output=Path(folder)/'index.json';output.write_text(json.dumps(baseline))
             file.write_text(row.replace('2000','2100'));git('add','.');git('commit','-m','Historical correction')
+            spec=importlib.util.spec_from_file_location('history',Path(__file__).resolve().parents[1]/'scripts/history_changes.py')
+            history=importlib.util.module_from_spec(spec);spec.loader.exec_module(history)
+            head,paths=history.recent_paths(root)
+            self.assertEqual(head,git('rev-parse','HEAD'))
+            self.assertEqual(paths,['daily_problems/2020/01/0101/problems.md'])
             command=[sys.executable,str(Path(__file__).resolve().parents[1]/'scripts/build_index.py'),str(root),'--output',str(output),'--metadata',str(Path(folder)/'missing.json')]
             subprocess.check_output(command)
             pending=json.loads(output.read_text())
