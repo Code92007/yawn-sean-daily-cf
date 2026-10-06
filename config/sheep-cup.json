@@ -3,7 +3,39 @@
     "title": "小羊杯 Round 1",
     "platform": "洛谷",
     "contestUrl": "https://www.luogu.com.cn/contest/222636",
-    "accessCode": "6u8k"
+    "accessCode": "6u8k",
+    "problems": [
+      {
+        "index": "A",
+        "title": "很有操作",
+        "solution": "a.py"
+      },
+      {
+        "index": "B",
+        "title": "连分数",
+        "solution": "b.py"
+      },
+      {
+        "index": "C",
+        "title": "蓬生麻中",
+        "solution": "c.py"
+      },
+      {
+        "index": "D",
+        "title": "好方",
+        "solution": "d.py"
+      },
+      {
+        "index": "E",
+        "title": "植树节",
+        "solution": "e.py"
+      },
+      {
+        "index": "F",
+        "title": "嘴硬",
+        "solution": "f.cpp"
+      }
+    ]
   },
   "Round2": {
     "title": "小羊杯 Round 2",

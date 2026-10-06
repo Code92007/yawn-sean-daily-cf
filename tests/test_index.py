@@ -85,7 +85,10 @@ class SheepCupTests(unittest.TestCase):
             rounds=module.build_sheep(root)
             self.assertEqual(rounds[0]['accessCode'],'6u8k')
             self.assertEqual(rounds[0]['contestUrl'],'https://www.luogu.com.cn/contest/222636')
-            self.assertEqual(rounds[0]['problems'],[])
+            self.assertEqual(len(rounds[0]['problems']),6)
+            self.assertEqual(rounds[0]['problems'][0]['title'],'很有操作')
+            self.assertIsNone(rounds[0]['problems'][0]['url'])
+            self.assertIsNone(rounds[0]['problems'][0]['editorial'])
             self.assertEqual(len(rounds[1]['problems']),2)
             problem=rounds[1]['problems'][0]
             self.assertEqual(problem['title'],'题面标题')

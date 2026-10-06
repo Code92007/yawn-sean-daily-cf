@@ -105,6 +105,7 @@ def build_sheep(root):
         info['source']='https://github.com/Yawn-Sean/Daily_CF_Problems/tree/main/'+quote(relative,safe='/')
         info['editorial']=None
         info['standardSolution']=info['source']+'/standard_solution' if (directory/'standard_solution').is_dir() else None
+        configured_problems=info.pop('problems',[])
         info['problems']=[]
         tutorial=directory/'tutorial.md'
         if tutorial.is_file():
@@ -124,6 +125,11 @@ def build_sheep(root):
                     url=template.format(index=index) if template else None,
                     editorial=info['editorial']+'#'+quote(slug)))
             info['problems'].sort(key=lambda p:p['index'])
+        if not info['problems']:
+            for problem in configured_problems:
+                solution=directory/problem.get('solution','')
+                info['problems'].append(dict(index=problem['index'],title=problem['title'],difficulty='',url=None,
+                    editorial=REPO_URL+quote(solution.relative_to(root).as_posix(),safe='/') if solution.is_file() else None))
         rounds.append(info)
     return rounds
 
