@@ -27,7 +27,9 @@ jobs:
         with:
           repository: Yawn-Sean/Daily_CF_Problems
           path: upstream
-          sparse-checkout: daily_problems
+          sparse-checkout: |
+            daily_problems
+            categories
       - run: python scripts/update_metadata.py
       - run: python scripts/build_index.py upstream
       - run: python -m unittest discover -s tests
