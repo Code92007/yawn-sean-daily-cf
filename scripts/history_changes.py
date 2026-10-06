@@ -20,7 +20,14 @@ def recent_paths(root,previous_commit=None):
             return head,git(root,'diff','--name-only',previous_commit,head,'--','daily_problems').splitlines()
         except subprocess.CalledProcessError:
             pass
-    return head,git(root,'log','--since=2 days ago','--format=','--name-only','--no-root','--diff-merges=first-parent','--','daily_problems').splitlines()
+    paths=[]
+    for line in git(root,'log','--since=2 days ago','--format=%H %P').splitlines():
+        commits=line.split()
+        # Skip real roots and shallow boundaries; diffing those against an empty
+        # tree would incorrectly report every historical file as newly changed.
+        if len(commits)>1:
+            paths.extend(git(root,'diff','--name-only',commits[1],commits[0],'--','daily_problems').splitlines())
+    return head,paths
 
 def inspect(root,previous,paths,parse,enrich,metadata,today):
     changes={c['date']:c for c in previous.get('historicalChanges',[])}
