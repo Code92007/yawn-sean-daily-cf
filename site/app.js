@@ -1,4 +1,4 @@
-import {selectProblems,statusOf,collectSubmissions,ratingColor,dayCompleted} from './core.js';
+import {selectProblems,statusOf,collectSubmissions,ratingColor,dayCompleted} from './core.js?v=3f06fc42e444';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
@@ -55,4 +55,4 @@ $('accountForm').addEventListener('submit',async e=>{
  }catch(e){$('accountStatus').textContent=`同步失败：${e.message}。现有状态已保留，可稍后重试。`;$('accountStatus').classList.add('error');}
  finally{busy=false;$('sync').disabled=false;$('clear').disabled=false;$('handle').disabled=false;}
 });
-try{const response=await fetch('./data/problems.json');if(!response.ok)throw Error(`HTTP ${response.status}`);const data=await response.json();problems=data.problems;$('update').textContent=`题库更新 ${new Date(data.generatedAt).toLocaleString('zh-CN')} · ${data.days} 天`;render();}catch(e){$('summary').textContent=`题库加载失败：${e.message}，请刷新重试`;$('summary').classList.add('error');}
+try{const response=await fetch('./data/problems.json?t='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error(`HTTP ${response.status}`);const data=await response.json();problems=data.problems;$('update').textContent=`题库更新 ${new Date(data.generatedAt).toLocaleString('zh-CN')} · ${data.days} 天`;render();}catch(e){$('summary').textContent=`题库加载失败：${e.message}，请刷新重试`;$('summary').classList.add('error');}
