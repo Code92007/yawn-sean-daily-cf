@@ -28,3 +28,5 @@ export function collectSubmissions(submissions, statuses={}) {
  return statuses;
 }
 export function ratingColor(n){return n==null?'#818990':n<1200?'#818990':n<1400?'#24923c':n<1600?'#139c9c':n<1900?'#245bd4':n<2100?'#9b45bb':n<2400?'#dd8a00':'#e03838';}
+
+export function dayCompleted(problems,remote){return problems.length>0&&problems.every(p=>statusOf(p,remote,{})==='solved');}

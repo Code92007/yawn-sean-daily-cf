@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeQuery,collectSubmissions,selectProblems,statusOf} from '../site/core.js';
+import {normalizeQuery,collectSubmissions,selectProblems,statusOf,dayCompleted} from '../site/core.js';
 const p={key:'cf:1900:E',id:'CF1900E',contestId:1900,index:'E',date:'2024-02-26',rating:2000,divisions:['div1','div2']};
 const gym={key:'gym:106247:2',id:'GYM106247B',aliases:['GYM1062472'],contestId:106247,index:'2',date:'2026-02-20',rating:1400,divisions:['gym']};
 const filters={category:'all',completion:'all'};
@@ -20,3 +20,5 @@ test('AC stays solved across pages and failed submissions',()=>{
  assert.equal(state['1900:E'],'solved');assert.equal(statusOf(p,{},{}),'unknown');assert.equal(statusOf(p,{}, {[p.key]:true}),'solved');
  assert.equal(selectProblems([p],{...filters,completion:'unsolved'},state).length,0);
 });
+
+test('date turns green only when every original daily problem is solved',()=>{assert.equal(dayCompleted([p,gym],{'1900:E':'solved'}),false);assert.equal(dayCompleted([p,gym],{'1900:E':'solved','106247:2':'solved'}),true);assert.equal(dayCompleted([],{}),false);});

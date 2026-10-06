@@ -1,4 +1,4 @@
-import {selectProblems,statusOf,collectSubmissions,ratingColor} from './core.js';
+import {selectProblems,statusOf,collectSubmissions,ratingColor,dayCompleted} from './core.js';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}};
@@ -29,7 +29,7 @@ function render(){
  }
  $('rows').innerHTML=days.slice((page-1)*size,page*size).map(([date,list])=>{
  list.sort((a,b)=>(a.rating??0)-(b.rating??0)||a.id.localeCompare(b.id));
- return `<tr><td class="datecell ${allDays.get(date).every(p=>statusOf(p,remote,manual)==='solved')?'complete':''}"><a href="${esc(list[0].source)}" target="_blank" rel="noopener">${date}</a></td>${cell(list[0])}${cell(list[1])}</tr>`;
+ return `<tr><td class="datecell ${dayCompleted(allDays.get(date),remote)?'complete':''}"><a href="${esc(list[0].source)}" target="_blank" rel="noopener">${date}</a></td>${cell(list[0])}${cell(list[1])}</tr>`;
  }).join('')||'<tr><td colspan="3" class="empty">没有匹配的题目。试试其他题号或筛选条件。</td></tr>';
 
 }
