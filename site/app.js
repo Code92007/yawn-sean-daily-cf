@@ -13,21 +13,30 @@ function render(){
  const filters=Object.fromEntries(['query','start','end','min','max','completion'].map(id=>[id,$(id).value]));filters.category=category;
  let matched=selectProblems(problems,filters,remote,manual).sort((a,b)=>(descending?-1:1)*a.date.localeCompare(b.date));
  const count=new Set(matched.map(p=>p.key)).size,solved=new Set(matched.filter(p=>statusOf(p,remote,manual)==='solved').map(p=>p.key)).size;
- const pages=Math.max(1,Math.ceil(matched.length/size));page=Math.max(1,Math.min(page,pages));
- $('summary').textContent=`${matched.length} 条每日记录 · ${count} 道题 · 已完成 ${solved} 道`;
+ const groups=new Map();
+ for(const p of matched){if(!groups.has(p.date))groups.set(p.date,[]);groups.get(p.date).push(p);}
+ const days=[...groups.entries()];
+ const pages=Math.max(1,Math.ceil(days.length/size));page=Math.max(1,Math.min(page,pages));
+ $('summary').textContent=`${days.length} 天 · ${matched.length} 条每日记录 · ${count} 道题 · 已完成 ${solved} 道`;
  if(filters.start&&filters.end&&filters.start>filters.end)$('summary').textContent='开始日期不能晚于结束日期';
  $('page').textContent=`${page} / ${pages}`;$('prev').disabled=page===1;$('next').disabled=page===pages;
- $('rows').innerHTML=matched.slice((page-1)*size,page*size).map(p=>{
+ function cell(p){
+ if(!p)return '<td class="problemcell emptycell">—</td>';
  const state=statusOf(p,remote,manual),color=ratingColor(p.rating);
  const desc=state==='solved'?(manual[p.key]?'手动完成':'已 AC'):state==='attempted'?'有提交 · 未查到 AC':currentHandle?'未查到公开 AC':'未检查';
- return `<tr class="${state==='solved'?'complete':''}"><td><a href="${esc(p.source)}" target="_blank" rel="noopener">${p.date}</a></td><td><div class="problem"><span class="dot ${state}"></span><a style="color:${color}" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.id)}${p.name?' · '+esc(p.name):''}</a></div>${p.name?'':`<span class="sub">${p.kind==='gym'?'Codeforces Gym':'Codeforces'} · ${p.contestId}</span>`}${$('hints').checked&&p.hint?`<div class="hint">${esc(p.hint)}</div>`:''}</td><td><span class="rating" style="color:${color}">${p.estimated?'*':''}${p.rating??'—'}</span></td><td>${p.divisions.map(d=>`<span class="badge">${{div1:'Div. 1',div2:'Div. 2',gym:'Gym',other:'其他 / 未分类'}[d]}</span>`).join('')}<span class="sub" title="${esc(p.contestName||'')}">${esc(p.contestName||'')}</span></td><td class="status ${state==='solved'?'ok':''}">${desc}</td><td>${p.editorial?`<a href="${esc(p.editorial)}" target="_blank" rel="noopener">题解 ↗</a>`:`<a href="${esc(p.source)}" target="_blank" rel="noopener">原文 ↗</a>`}<button class="manual" data-key="${esc(p.key)}" ${state==='solved'&&!manual[p.key]?'disabled':''}>${manual[p.key]?'取消标记':'标记完成'}</button></td></tr>`;
- }).join('')||'<tr><td colspan="6" class="empty">没有匹配的题目。试试其他题号或筛选条件。</td></tr>';
+ return `<td class="problemcell ${state==='solved'?'complete':''}"><div class="problem"><span class="dot ${state}"></span><a style="color:${color}" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.id)}${p.name?' · '+esc(p.name):''}</a></div><div class="cellmeta">${p.divisions.map(d=>`<span class="badge" title="${esc(p.contestName||'')}">${{div1:'Div. 1',div2:'Div. 2',gym:'Gym',other:'其他 / 未分类'}[d]}</span>`).join('')}<span class="status ${state==='solved'?'ok':''}">${desc}</span><span class="rating" style="color:${color}">${p.estimated?'*':''}${p.rating??'—'}</span></div>${$('hints').checked&&p.hint?`<div class="hint">${esc(p.hint)}</div>`:''}<div class="cellactions">${p.editorial?`<a href="${esc(p.editorial)}" target="_blank" rel="noopener">题解 ↗</a>`:`<a href="${esc(p.source)}" target="_blank" rel="noopener">原文 ↗</a>`}<button class="manual" data-key="${esc(p.key)}" ${state==='solved'&&!manual[p.key]?'disabled':''}>${manual[p.key]?'取消标记':'标记完成'}</button></div></td>`;
+ }
+ $('rows').innerHTML=days.slice((page-1)*size,page*size).map(([date,list])=>{
+ list.sort((a,b)=>(a.rating??0)-(b.rating??0)||a.id.localeCompare(b.id));
+ return `<tr><td class="datecell"><a href="${esc(list[0].source)}" target="_blank" rel="noopener">${date}</a></td>${cell(list[0])}${cell(list[1])}</tr>`;
+ }).join('')||'<tr><td colspan="3" class="empty">没有匹配的题目。试试其他题号或筛选条件。</td></tr>';
+
 }
 for(const id of ['query','start','end','min','max','completion','hints'])$(id).addEventListener('input',()=>{page=1;render()});
 document.querySelector('.tabs').addEventListener('click',e=>{if(!e.target.dataset.category)return;category=e.target.dataset.category;document.querySelectorAll('.tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.category===category);b.setAttribute('aria-pressed',b.dataset.category===category)});page=1;render()});
 $('rows').addEventListener('click',e=>{const key=e.target.dataset.key;if(!key)return;if(manual[key])delete manual[key];else manual[key]=true;save('dcf.manual.'+(currentHandle.toLowerCase()||'guest'),manual);render()});
 $('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('sort').onclick=()=>{descending=!descending;$('sort').textContent=`日期 ${descending?'↓':'↑'}`;render()};
-$('reset').onclick=()=>{for(const id of ['query','start','end','min','max'])$(id).value='';$('completion').value='all';category='all';document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.category==='all'));page=1;render()};
+$('reset').onclick=()=>{for(const id of ['query','start','end','min','max'])$(id).value='';$('completion').value='all';category='all';document.querySelectorAll('.tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.category==='all');b.setAttribute('aria-pressed',b.dataset.category==='all')});page=1;render()};
 $('clear').onclick=()=>{if(busy)return;currentHandle='';$('handle').value='';remote={};manual=read('dcf.manual.guest',{});save('dcf.handle','');$('accountStatus').textContent='已清除当前用户，手动记录按用户独立保存';render()};
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function fetchPage(handle,from){
