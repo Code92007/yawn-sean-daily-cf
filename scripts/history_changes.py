@@ -31,6 +31,7 @@ def recent_paths(root,previous_commit=None):
 
 def inspect(root,previous,paths,parse,enrich,metadata,today):
     changes={c['date']:c for c in previous.get('historicalChanges',[])}
+    rejected={c['id'] for c in previous.get('historicalRejections',[])}
     daily=previous.get('problems',[])
     for path in sorted(set(paths)):
         match=re.fullmatch(r'daily_problems/(\d{4})/(\d{2})/(\d{4})/problems\.md',path)
@@ -55,6 +56,9 @@ def inspect(root,previous,paths,parse,enrich,metadata,today):
         after=[dict(old.get(p['key'],enrich(dict(p),metadata)),**p) for p in after]
         signature=json.dumps(dict(date=date,before=before,after=after,error=error),sort_keys=True,ensure_ascii=False)
         change_id=hashlib.sha256(signature.encode()).hexdigest()[:16]
+        if change_id in rejected:
+            changes.pop(date,None)
+            continue
         changes[date]=dict(id=change_id,date=date,path=path,before=before,after=after,error=error,
             detectedAt=changes.get(date,{}).get('detectedAt') if changes.get(date,{}).get('id')==change_id else dt.datetime.now(dt.timezone.utc).isoformat())
     return sorted(changes.values(),key=lambda c:c['date'],reverse=True)
@@ -67,4 +71,12 @@ def approve(previous,change_id):
     result['problems']=[p for p in result['problems'] if p['date']!=change['date']]+change['after']
     result['historicalChanges']=[c for c in result['historicalChanges'] if c['id']!=change_id]
     result.setdefault('historicalApprovals',[]).append(dict(id=change_id,date=change['date'],approvedAt=dt.datetime.now(dt.timezone.utc).isoformat()))
+    return result
+
+def reject(previous,change_id):
+    result=copy.deepcopy(previous)
+    change=next((c for c in result.get('historicalChanges',[]) if c['id']==change_id),None)
+    if not change:raise ValueError('Unknown or outdated historical change ID')
+    result['historicalChanges']=[c for c in result['historicalChanges'] if c['id']!=change_id]
+    result.setdefault('historicalRejections',[]).append(dict(id=change_id,date=change['date'],rejectedAt=dt.datetime.now(dt.timezone.utc).isoformat()))
     return result

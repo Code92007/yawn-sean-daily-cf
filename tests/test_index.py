@@ -101,11 +101,54 @@ class IncrementalTests(unittest.TestCase):
             self.assertEqual(len(pending['historicalChanges']),1)
             subprocess.check_output(command)
             self.assertEqual(json.loads(output.read_text())['historicalChanges'],pending['historicalChanges'])
+            # A stale approval must fail without changing the saved index.
+            saved=output.read_bytes()
+            file.write_text(row.replace('2000','2200'));git('add','.');git('commit','-m','New correction')
+            stale=subprocess.run(command+['--approve-change',pending['historicalChanges'][0]['id']],capture_output=True)
+            self.assertNotEqual(stale.returncode,0)
+            self.assertEqual(output.read_bytes(),saved)
+            subprocess.check_output(command)
+            pending=json.loads(output.read_text())
+            rejected_id=pending['historicalChanges'][0]['id']
+            subprocess.check_output(command+['--reject-change',rejected_id])
+            rejected=json.loads(output.read_text())
+            self.assertEqual(rejected['problems'],baseline['problems'])
+            self.assertEqual(rejected['historicalChanges'],[])
+            self.assertEqual(rejected['historicalRejections'][0]['id'],rejected_id)
+            subprocess.check_output(command)
+            self.assertEqual(json.loads(output.read_text())['historicalChanges'],[])
+            # A later upstream correction gets a new ID and needs a new decision.
+            file.write_text(row.replace('2000','2100'));git('add','.');git('commit','-m','Another correction')
+            subprocess.check_output(command)
+            pending=json.loads(output.read_text())
+            self.assertNotEqual(pending['historicalChanges'][0]['id'],rejected_id)
             subprocess.check_output(command+['--approve-change',pending['historicalChanges'][0]['id']])
             approved=json.loads(output.read_text())
             self.assertEqual(approved['problems'][0]['rating'],2100)
             self.assertEqual(approved['historicalChanges'],[])
             self.assertEqual(len(approved['historicalApprovals']),1)
+            self.assertEqual(approved['historicalRejections'],rejected['historicalRejections'])
+
+    def test_decisions_only_change_the_matching_date(self):
+        spec=importlib.util.spec_from_file_location('history',Path(__file__).resolve().parents[1]/'scripts/history_changes.py')
+        history=importlib.util.module_from_spec(spec);spec.loader.exec_module(history)
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            for day in ('1005','1006'):
+                file=root/f'daily_problems/2026/10/{day}/problems.md';file.parent.mkdir(parents=True)
+                file.write_text('| 2000 | [CF75D](https://codeforces.com/contest/75/problem/D) | Original |')
+            previous=module.build(root)
+            path='daily_problems/2026/10/1005/problems.md'
+            file=root/path;file.write_text(file.read_text()+'\n| *1700 | [GYM104603E](https://codeforces.com/gym/104603/problem/E) | Hint |')
+            previous['historicalChanges']=history.inspect(root,previous,[path],module.parse,module.enrich,{},'2026-10-07')
+            change_id=previous['historicalChanges'][0]['id']
+            with self.assertRaises(ValueError):history.reject(previous,'invalid')
+            rejected=history.reject(previous,change_id)
+            self.assertEqual(rejected['problems'],previous['problems'])
+            self.assertEqual(history.inspect(root,rejected,[path],module.parse,module.enrich,{},'2026-10-07'),[])
+            approved=history.approve(previous,change_id)
+            self.assertEqual([p for p in approved['problems'] if p['date']=='2026-10-06'],[p for p in previous['problems'] if p['date']=='2026-10-06'])
+            self.assertEqual(len([p for p in approved['problems'] if p['date']=='2026-10-05']),2)
 
     def test_historical_notifications_and_explicit_approval(self):
         spec=importlib.util.spec_from_file_location('history',Path(__file__).resolve().parents[1]/'scripts/history_changes.py')

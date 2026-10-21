@@ -1,4 +1,5 @@
 name: Update daily problems and deploy Pages
+run-name: ${{ inputs.approve_change && format('Approve history {0}', inputs.approve_change) || inputs.reject_change && format('Keep history {0}', inputs.reject_change) || 'Update daily problems and deploy Pages' }}
 on:
   push:
     branches: [main]
@@ -9,6 +10,11 @@ on:
     inputs:
       approve_change:
         description: '确认合并历史差异的 ID（留空则仅增量更新）'
+        required: false
+        default: ''
+        type: string
+      reject_change:
+        description: '保留当前数据、不采用此历史差异的 ID'
         required: false
         default: ''
         type: string
@@ -24,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -40,11 +48,21 @@ jobs:
             categories
             SheepCup
       - run: python scripts/update_metadata.py
-      - run: python scripts/build_index.py upstream --approve-change "$APPROVE_CHANGE"
+      - name: Update index with the explicit historical decision
+        run: |
+          if [ -n "$APPROVE_CHANGE" ] && [ -n "$REJECT_CHANGE" ]; then
+            echo "Choose only one historical decision"
+            exit 1
+          elif [ -n "$REJECT_CHANGE" ]; then
+            python scripts/build_index.py upstream --reject-change "$REJECT_CHANGE"
+          else
+            python scripts/build_index.py upstream --approve-change "$APPROVE_CHANGE"
+          fi
         env:
           APPROVE_CHANGE: ${{ inputs.approve_change }}
+          REJECT_CHANGE: ${{ inputs.reject_change }}
       - run: python -m unittest discover -s tests
-      - run: node --test tests/core.test.mjs
+      - run: node --test tests/*.test.mjs
       - name: Keep refreshed data in repository
         run: |
           git config user.name "github-actions[bot]"

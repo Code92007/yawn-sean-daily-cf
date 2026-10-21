@@ -11,7 +11,7 @@ Gym 私有或不可见提交可能无法查询，未查到 AC 不等于没做过
 ```sh
 python3 -m http.server 4173 --directory site
 python3 -m unittest discover -s tests
-node --test tests/core.test.mjs
+node --test tests/*.test.mjs
 ```
 
 访问 http://localhost:4173 ，不要直接双击 HTML。
@@ -26,7 +26,9 @@ GitHub 定时任务可能延迟，公开仓库长时间无活动可能暂停定�
 
 历史差异仅检查上次同步提交以来变更的每日文件；首次运行或旧提交不在浅克隆中时回看最近两天的 Git 记录。日常构建跳过已有历史日期的解析，不会逐日重新导入。右上角“通知”角标显示待确认日期数量，点击可对比当前和上游数据并查看上游修改记录。待确认差异跨同步保留；上游恢复原内容时自动清除。
 
-如确认采用历史修正，复制通知中的差异 ID，在 Actions → Update daily problems and deploy Pages → Run workflow 的 `approve_change` 中填入后运行；也可明确告知 Codex 该 ID。只合并该差异 ID 对应日期的快照，其他历史不变。无效或过期 ID、无法解析的差异会使任务失败，不会部署。工作流仅仓库有权限的用户可执行；静态网站上的访客不能修改公共题库。
+在网站“通知”弹窗中连接 GitHub，即可直接选择“采用更新”或“保留当前”，再次确认后提交；弹窗会显示任务进度，部署完成后自动刷新题库。创建细粒度访问令牌时，只选择 `Code92007/yawn-sean-daily-cf` 仓库，授予 **Actions: Read and write** 权限。令牌只保存在当前页面内存中、直接发送给 GitHub API，不写入浏览器存储、服务器或仓库；刷新后需要重新连接。普通访客可查看差异，只有具备仓库写入权限的账号可处理。GitHub API 说明见 [workflow dispatch](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)。
+
+“采用更新”只合并该差异 ID 对应日期的快照；“保留当前”记录本次拒绝，同一差异不再提醒，上游产生新的差异时重新通知。查看、关闭通知或连接 GitHub 都不会改变数据。构建时再次核对最新上游，无效或过期 ID、无法解析的修正会使任务失败，保留线上数据。也可在 Actions → Update daily problems and deploy Pages → Run workflow 的 `approve_change` 或 `reject_change` 中填入 ID，或明确告知 Codex 该 ID。
 
 这是第三方索引站，上游题目提示和其他内容归原作者所有。未复制个人解题代码。
 
